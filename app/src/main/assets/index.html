@@ -1,0 +1,106 @@
+<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><title>Şehir Kaosu</title>
+<style>
+html,body{margin:0;height:100%;background:#111;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;font-family:system-ui,sans-serif}
+canvas{display:block;position:fixed;inset:0}
+.b{position:fixed;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.55);color:#fff;font:700 13px system-ui;display:flex;align-items:center;justify-content:center;touch-action:none;bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+#f{right:20px;width:92px;height:92px;background:rgba(255,60,60,.3)}
+#e{right:124px;width:70px;height:70px;bottom:calc(52px + env(safe-area-inset-bottom,0px))}
+</style></head><body>
+<canvas id="c"></canvas><div class="b" id="f">ATEŞ</div><div class="b" id="e">BİN / İN</div>
+<script>
+const cv=document.getElementById('c'),g=cv.getContext('2d'),mm=document.createElement('canvas');mm.width=mm.height=110;const mg=mm.getContext('2d');
+const S=400,W=3200,PI=Math.PI;let vw,vh,z=1;
+function rs(){vw=cv.width=innerWidth;vh=cv.height=innerHeight;z=Math.max(.7,Math.min(1.2,vw/700))}addEventListener('resize',rs);rs();
+const rnd=(a,b)=>a+Math.random()*(b-a),ri=n=>Math.floor(Math.random()*n),cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+const ad=(a,b)=>{let d=(b-a)%(2*PI);if(d>PI)d-=2*PI;if(d<-PI)d+=2*PI;return d};
+const isB=(x,y)=>x<0||y<0||x>=W||y>=W||(x%S>=120&&y%S>=120);
+const cb=(x,y,r=15)=>{for(let i=0;i<8;i++){const t=i*PI/4;if(isB(x+Math.cos(t)*r,y+Math.sin(t)*r))return 1}return 0};
+const pb=(x,y)=>isB(x+6,y)||isB(x-6,y)||isB(x,y+6)||isB(x,y-6);
+let P,cars,peds,bul,cash,heat,hp,dead,cd,spT,T,msg,msgT,fr=0,cam={x:0,y:0};
+const mkCar=(ix,iy,cop)=>({x:ix*S+60,y:iy*S+60,a:ri(4)*PI/2,v:cop?0:2.2,col:`hsl(${ri(360)},60%,50%)`,cop,hp:cop?6:4,ai:!cop,t:0,drv:0,ch:cop,s:Math.random()<.5?1:-1});
+function mkPed(){const h=Math.random()<.5,o=ri(8)*S+rnd(0,120),p=rnd(40,W-40);return{x:h?p:o,y:h?o:p,a:rnd(0,2*PI),v:.6,col:`hsl(${ri(360)},50%,55%)`,dead:0,t:0}}
+function newT(){let ix,iy;do{ix=ri(8);iy=ri(8)}while(Math.hypot(ix*S+60-P.x,iy*S+60-P.y)<700);T={x:ix*S+60,y:iy*S+60}}
+function say(m){msg=m;msgT=200}
+function init(){P={x:3*S+60,y:3*S+60,a:0,car:null};hp=100;heat=0;dead=0;cd=0;spT=0;bul=[];cars=[];peds=[];
+for(let i=0;i<22;i++)cars.push(mkCar(ri(8),ri(8),0));for(let i=0;i<60;i++)peds.push(mkPed());
+const c=mkCar(3,3,0);c.x+=90;c.ai=0;c.v=0;c.a=0;c.col='#e33';cars.push(c);newT();say('Kırmızı arabaya bin, sarı hedefe git!')}
+cash=0;init();
+const K={},J={id:null,ox:0,oy:0,x:0,y:0};let fire=0,act=0;
+addEventListener('keydown',e=>{K[e.key.toLowerCase()]=1;if(e.key==' ')fire=1;if(e.key=='e'||e.key=='Enter')act=1});
+addEventListener('keyup',e=>{K[e.key.toLowerCase()]=0;if(e.key==' ')fire=0});
+cv.addEventListener('touchstart',e=>{e.preventDefault();for(const t of e.changedTouches)if(J.id===null&&t.clientX<vw*.6){J.id=t.identifier;J.ox=t.clientX;J.oy=t.clientY;J.x=J.y=0}},{passive:false});
+cv.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===J.id){let dx=(t.clientX-J.ox)/50,dy=(t.clientY-J.oy)/50,l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}J.x=dx;J.y=dy}},{passive:false});
+const te=e=>{for(const t of e.changedTouches)if(t.identifier===J.id){J.id=null;J.x=J.y=0}};cv.addEventListener('touchend',te);cv.addEventListener('touchcancel',te);
+const F=document.getElementById('f'),E=document.getElementById('e');
+F.onpointerdown=()=>fire=1;F.onpointerup=F.onpointercancel=F.onpointerleave=()=>fire=0;E.onpointerdown=()=>act=1;
+function inp(){let x,y;if(J.id!==null){x=J.x;y=J.y}else{x=(K.d||K.arrowright?1:0)-(K.a||K.arrowleft?1:0);y=(K.s||K.arrowdown?1:0)-(K.w||K.arrowup?1:0)}const m=Math.min(1,Math.hypot(x,y));return{m,a:Math.atan2(y,x)}}
+function bump(c){const s=Math.abs(c.v);if(s>3){hp-=s*.8;c.hp-=s*.25}c.v*=-.3}
+function upd(){fr++;if(msgT>0)msgT--;
+if(dead>0){if(--dead==0){hp=100;heat=0;cash=Math.floor(cash*.8);P.car=null;P.x=3*S+60;P.y=3*S+60;cars=cars.filter(c=>!(c.cop&&c.ch))}return}
+const I=inp(),c=P.car;
+if(act){act=0;if(c){c.drv=0;const ex=c.x+Math.cos(c.a+PI/2)*30,ey=c.y+Math.sin(c.a+PI/2)*30;if(pb(ex,ey)){P.x=c.x;P.y=c.y}else{P.x=ex;P.y=ey}P.a=c.a;P.car=null}
+else{let b=null,bd=45;for(const o of cars){const d=Math.hypot(o.x-P.x,o.y-P.y);if(d<bd&&!o.drv){b=o;bd=d}}if(b){P.car=b;b.drv=1;b.ai=0;b.ch=0;heat=Math.min(5.9,heat+.5);say('Araç çalındı!')}}}
+const D=P.car;
+if(D){let da=ad(D.a,I.a);if(I.m>.2){if(Math.abs(da)>2.4){D.v=Math.max(D.v-.12,-2)}else{D.a+=cl(da,-.06,.06)*(.4+Math.min(1,Math.abs(D.v)/3));D.v=Math.min(D.v+.08*I.m,5.5)}}else D.v*=.97;
+const nx=D.x+Math.cos(D.a)*D.v;if(!cb(nx,D.y))D.x=nx;else bump(D);const ny=D.y+Math.sin(D.a)*D.v;if(!cb(D.x,ny))D.y=ny;else bump(D);
+P.x=D.x;P.y=D.y;P.a=D.a;
+if(D.hp<=0){say('Araç patladı!');cars=cars.filter(o=>o!==D);P.car=null;hp-=35}}
+else if(I.m>.1){const nx=P.x+Math.cos(I.a)*2.2*I.m,ny=P.y+Math.sin(I.a)*2.2*I.m;if(!pb(nx,P.y))P.x=nx;if(!pb(P.x,ny))P.y=ny;if(I.m>.2)P.a=I.a}
+if(cd>0)cd--;if(fire&&cd<=0){cd=9;const v=P.car?P.car.v:0;bul.push({x:P.x+Math.cos(P.a)*16,y:P.y+Math.sin(P.a)*16,vx:Math.cos(P.a)*(12+Math.max(0,v)),vy:Math.sin(P.a)*(12+Math.max(0,v)),l:50})}
+const wanted=Math.min(5,Math.floor(heat));
+for(const o of cars){if(o.drv)continue;
+if(o.ch){const ta=Math.atan2(P.y-o.y,P.x-o.x);o.a+=cl(ad(o.a,ta),-.045,.045);o.v=Math.min(o.v+.05,2.8+wanted*.35);const nx=o.x+Math.cos(o.a)*o.v,ny=o.y+Math.sin(o.a)*o.v;if(cb(nx,ny)){o.v*=.3;o.a+=o.s*.5}else{o.x=nx;o.y=ny}
+if(Math.hypot(o.x-P.x,o.y-P.y)<28)hp-=P.car?.12:.25}
+else if(o.ai){o.x+=Math.cos(o.a)*o.v;o.y+=Math.sin(o.a)*o.v;o.v+=(2.2-o.v)*.02;
+if(o.t--<=0&&Math.abs(o.x%S-60)<2.5&&Math.abs(o.y%S-60)<2.5){for(let k=0;k<12;k++){const a=ri(4)*PI/2;if(k<11&&Math.abs(ad(a,o.a))>3)continue;const nx=o.x+Math.cos(a)*S,ny=o.y+Math.sin(a)*S;if(nx>0&&ny>0&&nx<W&&ny<W){o.a=a;o.x=Math.floor(o.x/S)*S+60;o.y=Math.floor(o.y/S)*S+60;o.t=20;break}}}}
+else o.v*=.95;
+if(!P.car){const d=Math.hypot(o.x-P.x,o.y-P.y);if(d<20&&Math.abs(o.v)>2&&fr%30==0)hp-=Math.abs(o.v)*3}
+else{const d=Math.hypot(o.x-P.x,o.y-P.y);if(d<30&&d>0){const nx=(P.x-o.x)/d,ny=(P.y-o.y)/d;if(!cb(P.x+nx*3,P.y+ny*3)){P.car.x+=nx*3;P.car.y+=ny*3}if(!o.ai&&!o.ch)o.v=0;else{o.x-=nx*3;o.y-=ny*3}P.car.v*=.85;P.car.hp-=.4;if(o.ch)o.hp-=.4}}}
+cars=cars.filter(o=>{if(o.hp<=0&&o!==P.car){if(o.cop){cash+=150;say('Polis aracı imha edildi +$150')}return false}return true});
+const pv=P.car?Math.abs(P.car.v):0;
+for(let i=0;i<peds.length;i++){const p=peds[i];if(p.dead){if(--p.dead==0)peds[i]=mkPed();continue}
+const d=Math.hypot(p.x-P.x,p.y-P.y);
+if(P.car&&pv>1.2&&d<20){p.dead=600;cash+=20;heat=Math.min(5.9,heat+.7);continue}
+if(P.car&&pv>2&&d<140){p.a=Math.atan2(p.y-P.y,p.x-P.x);p.v=2}else p.v=.6;
+const nx=p.x+Math.cos(p.a)*p.v,ny=p.y+Math.sin(p.a)*p.v;if(pb(nx,ny)||p.t--<=0){p.a+=rnd(-2,2);p.t=40+ri(120)}else{p.x=nx;p.y=ny}}
+for(const b of bul){b.x+=b.vx;b.y+=b.vy;b.l--;if(isB(b.x,b.y))b.l=0;
+for(const p of peds)if(!p.dead&&b.l>0&&Math.hypot(p.x-b.x,p.y-b.y)<10){p.dead=600;b.l=0;cash+=10;heat=Math.min(5.9,heat+.7)}
+for(const o of cars)if(!o.drv&&b.l>0&&Math.hypot(o.x-b.x,o.y-b.y)<18){b.l=0;if(o.ch)o.hp--;else heat=Math.min(5.9,heat+.1)}}
+bul=bul.filter(b=>b.l>0);
+if(wanted>0){if(cars.filter(o=>o.ch).length<wanted+1&&--spT<=0){let ix,iy;do{ix=ri(8);iy=ri(8)}while(Math.hypot(ix*S+60-P.x,iy*S+60-P.y)<700);cars.push(mkCar(ix,iy,1));spT=150}heat=Math.max(0,heat-.0006)}
+else{cars=cars.filter(o=>!o.ch);heat=Math.max(0,heat-.0006);if(hp<100)hp+=.01}
+if(Math.hypot(T.x-P.x,T.y-P.y)<45){cash+=500;say('Görev tamam +$500');newT()}
+if(hp<=0){dead=140;hp=0;if(P.car){P.car.drv=0;P.car=null}}}
+function bcol(bx,by){return`hsl(${(bx*53+by*97)%360},14%,${30+(bx+by)%3*6}%)`}
+function drawCar(c){g.save();g.translate(c.x,c.y);g.rotate(c.a);g.fillStyle='rgba(0,0,0,.3)';g.fillRect(-16,-6,36,18);
+g.fillStyle=c.cop?'#eee':c.col;g.fillRect(-18,-9,36,18);g.fillStyle='#8cd';g.fillRect(2,-7,8,14);g.fillRect(-11,-7,5,14);
+if(c.cop){g.fillStyle=fr%16<8?'#f22':'#26f';g.fillRect(-4,-8,5,16)}g.restore()}
+function render(){const VW=vw/z,VH=vh/z,tx=P.x-VW/2,ty=P.y-VH/2;cam.x+=(tx-cam.x)*.15;cam.y+=(ty-cam.y)*.15;
+g.fillStyle='#14161a';g.fillRect(0,0,vw,vh);g.save();g.scale(z,z);g.translate(-cam.x,-cam.y);
+g.fillStyle='#8d9094';g.fillRect(0,0,W,W);g.fillStyle='#2d3136';
+for(let k=0;k<8;k++){g.fillRect(k*S+20,0,80,W);g.fillRect(0,k*S+20,W,80)}
+g.strokeStyle='#d8c24a';g.lineWidth=2;g.setLineDash([20,20]);g.beginPath();for(let k=0;k<8;k++){g.moveTo(k*S+60,0);g.lineTo(k*S+60,W);g.moveTo(0,k*S+60);g.lineTo(W,k*S+60)}g.stroke();g.setLineDash([]);
+const x0=Math.max(0,Math.floor(cam.x/S)),x1=Math.min(7,Math.floor((cam.x+VW)/S)),y0=Math.max(0,Math.floor(cam.y/S)),y1=Math.min(7,Math.floor((cam.y+VH)/S));
+for(let bx=x0;bx<=x1;bx++)for(let by=y0;by<=y1;by++){const x=bx*S+120,y=by*S+120,w=S-120;g.fillStyle='rgba(0,0,0,.35)';g.fillRect(x+8,y+8,w,w);g.fillStyle=bcol(bx,by);g.fillRect(x,y,w,w);g.fillStyle='rgba(255,255,255,.12)';g.fillRect(x+14,y+14,w-28,w-28)}
+for(const p of peds){g.fillStyle=p.dead?'#a11':p.col;g.beginPath();g.arc(p.x,p.y,p.dead?8:5,0,7);g.fill()}
+for(const o of cars)drawCar(o);
+if(dead==0&&!P.car){g.save();g.translate(P.x,P.y);g.rotate(P.a);g.fillStyle='#4af';g.beginPath();g.arc(0,0,7,0,7);g.fill();g.fillStyle='#222';g.fillRect(4,-2,12,4);g.restore()}
+g.fillStyle='#ff6';for(const b of bul){g.beginPath();g.arc(b.x,b.y,3,0,7);g.fill()}
+g.fillStyle='rgba(255,220,0,'+(.4+.3*Math.sin(fr/10))+')';g.beginPath();g.arc(T.x,T.y,32,0,7);g.fill();
+g.restore();
+const ta=Math.atan2(T.y-P.y,T.x-P.x),td=Math.hypot(T.x-P.x,T.y-P.y);if(td>250){g.save();g.translate(vw/2+Math.cos(ta)*Math.min(vw,vh)*.3,vh/2+Math.sin(ta)*Math.min(vw,vh)*.3);g.rotate(ta);g.fillStyle='#fd0';g.beginPath();g.moveTo(14,0);g.lineTo(-8,-9);g.lineTo(-8,9);g.fill();g.restore()}
+// mini harita
+const s=110/1600;mg.fillStyle='#223';mg.fillRect(0,0,110,110);mg.fillStyle='#556';
+for(let bx=0;bx<8;bx++)for(let by=0;by<8;by++){const x=(bx*S+120-P.x)*s+55,y=(by*S+120-P.y)*s+55;mg.fillRect(x,y,280*s,280*s)}
+const dot=(o,c)=>{mg.fillStyle=c;mg.fillRect((o.x-P.x)*s+54,(o.y-P.y)*s+54,3,3)};for(const o of cars)if(o.ch)dot(o,fr%16<8?'#f44':'#48f');dot(T,'#fd0');dot(P,'#fff');
+g.globalAlpha=.9;g.drawImage(mm,vw-122,46);g.globalAlpha=1;g.strokeStyle='#fff';g.strokeRect(vw-122,46,110,110);
+g.fillStyle='#000a';g.fillRect(12,44,150,56);g.fillStyle='#4f4';g.font='bold 18px system-ui';g.fillText('$'+cash,20,66);
+g.fillStyle='#400';g.fillRect(20,74,134,8);g.fillStyle='#e33';g.fillRect(20,74,134*cl(hp/100,0,1),8);
+const w=Math.min(5,Math.floor(heat));g.font='16px system-ui';for(let i=0;i<5;i++){g.fillStyle=i<w?(fr%20<10?'#f44':'#fd0'):'#555';g.fillText('★',20+i*20,96)}
+g.textAlign='center';if(msgT>0){g.font='bold 15px system-ui';g.fillStyle='#fff';g.fillText(msg,vw/2,vh*.18)}
+if(dead>0){g.font='bold 44px system-ui';g.fillStyle='#d22';g.fillText('YANDIN',vw/2,vh/2)}g.textAlign='left';
+if(J.id!==null){g.strokeStyle='#fff6';g.lineWidth=2;g.beginPath();g.arc(J.ox,J.oy,50,0,7);g.stroke();g.fillStyle='#fff5';g.beginPath();g.arc(J.ox+J.x*50,J.oy+J.y*50,22,0,7);g.fill()}}
+let last=performance.now(),acc=0;
+function loop(t){acc=Math.min(acc+t-last,100);last=t;while(acc>=16.67){upd();acc-=16.67}render();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script></body></html>
